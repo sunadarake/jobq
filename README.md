@@ -106,30 +106,40 @@ jobq clean
 jobq clean --keep-days 30
 ```
 
-## cronでの使用例
-
-### パターン1: スクリプトからジョブを追加
+### 7. キューの停止と再開
 
 ```bash
-# /opt/scripts/trigger_backup.sh
-#!/bin/bash
-/usr/local/bin/jobq add /opt/scripts/backup.sh
+# キューを停止（runしても実行されない）
+jobq stop
+
+# キューを再開
+jobq restart
 ```
 
+## cronでの使用例
+
+### 基本パターン: 毎分チェック＆実行
+
 ```cron
-# 毎時0分にバックアップをキューに追加
-0 * * * * /opt/scripts/trigger_backup.sh
+# 1分ごとにキューをチェックして1つ実行
+* * * * * /usr/local/bin/jobq run
 ```
 
-### パターン2: 直接ジョブを追加 + ワーカー
+ジョブ追加例:
+```bash
+# 手動またはスクリプトからジョブを追加
+jobq add /opt/scripts/backup.sh
+jobq add python3 /opt/scripts/process.py
+```
+
+### パターン2: cron でジョブ追加＋自動実行
 
 ```cron
-# ジョブを追加
-0 * * * * /usr/local/bin/jobq add /opt/scripts/script_a.sh
-30 * * * * /usr/local/bin/jobq add /opt/scripts/script_b.sh
-15 */2 * * * /usr/local/bin/jobq add python3 /opt/scripts/script_c.py
+# ジョブを追加（実行はされない）
+0 * * * * /usr/local/bin/jobq add /opt/scripts/backup.sh
+30 2 * * * /usr/local/bin/jobq add /opt/scripts/daily_task.sh
 
-# ワーカーを常時起動（1分ごとにチェック）
+# 毎分キューをチェックして実行
 * * * * * /usr/local/bin/jobq run
 ```
 

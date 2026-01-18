@@ -21,6 +21,7 @@ class JobQueue:
         self.queue_file = self.queue_dir / "jobq.json"
         self.lock_file = self.queue_dir / "jobq.lock"
         self.log_dir = self.queue_dir / "logs"
+        self.stop_file = self.queue_dir / "stopped"
 
         # ディレクトリ作成
         self.queue_dir.mkdir(parents=True, exist_ok=True)
@@ -57,6 +58,10 @@ class JobQueue:
         """キューを保存"""
         with open(self.queue_file, "w") as f:
             json.dump(queue, f, indent=2, ensure_ascii=False)
+
+    def _is_stopped(self):
+        """停止状態かチェック"""
+        return self.stop_file.exists()
 
     def add(self, command, args=None):
         """ジョブをキューに追加"""
@@ -171,6 +176,11 @@ class JobQueue:
 
     def run_next(self):
         """キューから次のジョブを実行"""
+        # 停止状態チェック
+        if self._is_stopped():
+            print("ジョブキューは停止中です（restart で再開）")
+            return False
+
         with open(self.lock_file, "w") as lock_fd:
             # 非ブロッキングでロック取得を試みる
             if not self._acquire_lock(lock_fd.fileno(), blocking=False):
@@ -233,6 +243,11 @@ class JobQueue:
 
     def worker(self):
         """ワーカーモード: キューが空になるまで実行し続ける"""
+        # 停止状態チェック
+        if self._is_stopped():
+            print("ジョブキューは停止中です（restart で再開）")
+            return
+
         print("ワーカーモード開始...")
 
         while True:
@@ -284,6 +299,19 @@ class JobQueue:
             finally:
                 self._release_lock(lock_fd.fileno())
 
+    def stop(self):
+        """ジョブキューを停止"""
+        self.stop_file.touch()
+        print("ジョブキューを停止しました")
+
+    def restart(self):
+        """ジョブキューを再開"""
+        if self.stop_file.exists():
+            self.stop_file.unlink()
+            print("ジョブキューを再開しました")
+        else:
+            print("ジョブキューは既に実行中です")
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -313,6 +341,10 @@ def main():
 
   # クリーンアップ（7日以上前の完了ジョブを削除）
   %(prog)s clean
+
+  # キューを停止/再開
+  %(prog)s stop
+  %(prog)s restart
         """,
     )
 
@@ -357,6 +389,12 @@ def main():
         "--keep-days", type=int, default=7, help="保持する日数（デフォルト: 7）"
     )
 
+    # stop サブコマンド
+    stop_parser = subparsers.add_parser("stop", help="ジョブキューを停止")
+
+    # restart サブコマンド
+    restart_parser = subparsers.add_parser("restart", help="ジョブキューを再開")
+
     args = parser.parse_args()
 
     if not args.command:
@@ -381,6 +419,10 @@ def main():
         queue.worker()
     elif args.command == "clean":
         queue.clean(args.keep_days)
+    elif args.command == "stop":
+        queue.stop()
+    elif args.command == "restart":
+        queue.restart()
 
 
 if __name__ == "__main__":
