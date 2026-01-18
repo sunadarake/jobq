@@ -16,8 +16,8 @@ from pathlib import Path
 
 
 class JobQueue:
-    def __init__(self, queue_dir="~/.jobq"):
-        self.queue_dir = Path(queue_dir)
+    def __init__(self, queue_dir="~/.local/share/jobq"):
+        self.queue_dir = Path(queue_dir).expanduser()
         self.queue_file = self.queue_dir / "jobq.json"
         self.lock_file = self.queue_dir / "jobq.lock"
         self.log_dir = self.queue_dir / "logs"
@@ -318,8 +318,8 @@ def main():
 
     parser.add_argument(
         "--queue-dir",
-        default="/var/lib/job-queue",
-        help="キューディレクトリ（デフォルト: /var/lib/job-queue）",
+        default="~/.local/share/jobq",
+        help="キューディレクトリ（デフォルト: ~/.local/share/jobq）",
     )
 
     subparsers = parser.add_subparsers(dest="command", help="サブコマンド")
